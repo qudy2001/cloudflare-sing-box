@@ -16,18 +16,24 @@ it does not update automatically.
 | [gfwlist.txt](gfwlist.txt) | Original Base64 AutoProxy list / 上游 Base64 原文件 |
 | [list.txt](list.txt) | Decoded AutoProxy rules, with the original syntax / 解码后的完整 AutoProxy 规则 |
 | [domains.txt](domains.txt) | Plain domain suffixes, one per line / 每行一个域名后缀；不含排除规则 |
+| [local-domains.txt](local-domains.txt) | Local additions to the converted formats / 转换结果的自定义补充域名 |
 | [exceptions.txt](exceptions.txt) | Convertible domain exceptions / 可转换的域名例外规则 |
 | [unsupported.txt](unsupported.txt) | Rules that cannot safely become domain suffixes / 无法安全转换成域名后缀的规则 |
 | [sing-box.json](sing-box.json) | sing-box source rule set / sing-box 源规则集 |
 | [sing-box.srs](sing-box.srs) | Compiled sing-box binary rule set / sing-box 二进制规则集 |
 
-The sing-box files contain **4,093 domain suffix rules and 31 domain
-exceptions**. They omit **289 URL, wildcard, regular-expression, and other
-rules** listed in `unsupported.txt`. Thus they approximate, rather than fully
-reproduce, GFWList. `domains.txt` does not apply the exceptions; use the
-sing-box files for the Mac profile in this repository.
+The sing-box files contain **4,093 upstream domain suffix rules, one local
+addition (`speedtest.net`), and 31 domain exceptions**. The original
+`gfwlist.txt` and decoded `list.txt` are unchanged upstream snapshots and do
+not include the local addition. The converted files omit **289 URL, wildcard,
+regular-expression, and other rules** listed in `unsupported.txt`. Thus they
+approximate, rather than fully reproduce, GFWList. `domains.txt` does not
+apply the exceptions; use the sing-box files for the Mac profile in this
+repository.
 
-sing-box 文件包含 **4,093 条域名后缀规则及 31 条域名例外规则**。
+sing-box 文件包含 **4,093 条上游域名后缀规则、1 条自定义规则
+（`speedtest.net`），以及 31 条域名例外规则**。原始 `gfwlist.txt` 和
+解码后的 `list.txt` 保持上游内容，不包含这条自定义规则。
 `unsupported.txt` 另列出 **289 条网址路径、通配符、正则等规则**，这些规则未被转换。
 因此 sing-box 版本只是 GFWList 的域名规则转换版，不能完全复现原列表。
 `domains.txt` 不处理例外规则；本仓库的 Mac 配置应使用 `.srs` 文件。
@@ -46,7 +52,8 @@ To regenerate from a downloaded upstream `gfwlist.txt`, run from the
 repository root:
 
 ```sh
-python3 scripts/build_proxylist.py /path/to/gfwlist.txt proxylist
+python3 scripts/build_proxylist.py /path/to/gfwlist.txt proxylist \
+  --extra-domains proxylist/local-domains.txt
 docker run --rm -v "$PWD/proxylist:/rules" ghcr.io/sagernet/sing-box:v1.14.3 \
   rule-set compile --output /rules/sing-box.srs /rules/sing-box.json
 ```

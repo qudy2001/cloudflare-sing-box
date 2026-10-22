@@ -12,7 +12,7 @@ DOMAIN_RULE = re.compile(r"^\|\|([A-Za-z0-9.-]+)\^?$")
 EXCEPTION_RULE = re.compile(r"^@@\|\|([A-Za-z0-9.-]+)\^?$")
 
 
-def convert(encoded: Path, destination: Path) -> None:
+def convert(encoded: Path, destination: Path, extra_domains: Path | None = None) -> None:
     raw = encoded.read_bytes()
     decoded = base64.b64decode(b"".join(raw.split()), validate=True).decode("utf-8")
     if not decoded.startswith("[AutoProxy "):
@@ -36,6 +36,17 @@ def convert(encoded: Path, destination: Path) -> None:
 
     if not domains:
         raise ValueError("No convertible domain rules found")
+    upstream_count = len(domains)
+    if extra_domains is not None:
+        for line in extra_domains.read_text(encoding="utf-8").splitlines():
+            domain = line.strip().lower()
+            if not domain or domain.startswith("#"):
+                continue
+            if (not re.fullmatch(r"[a-z0-9.-]+", domain)
+                    or domain.startswith(".") or domain.endswith(".")
+                    or ".." in domain):
+                raise ValueError(f"Invalid extra domain: {line}")
+            domains.add(domain)
 
     destination.mkdir(parents=True, exist_ok=True)
     (destination / "gfwlist.txt").write_bytes(raw)
@@ -54,12 +65,14 @@ def convert(encoded: Path, destination: Path) -> None:
     (destination / "sing-box.json").write_text(
         json.dumps(source, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"{len(domains)} domains, {len(exceptions)} exceptions, {len(unsupported)} unsupported rules")
+    print(f"{upstream_count} upstream domains, {len(domains) - upstream_count} extra domains, "
+          f"{len(exceptions)} exceptions, {len(unsupported)} unsupported rules")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("encoded", type=Path, help="upstream base64 gfwlist.txt")
     parser.add_argument("destination", type=Path, help="output proxylist directory")
+    parser.add_argument("--extra-domains", type=Path, help="plain text file of additional domain suffixes")
     args = parser.parse_args()
-    convert(args.encoded, args.destination)
+    convert(args.encoded, args.destination, args.extra_domains)

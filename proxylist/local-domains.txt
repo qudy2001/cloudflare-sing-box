@@ -1,0 +1,2 @@
+# Local additions to the converted sing-box rule set; not part of upstream GFWList.
+speedtest.net
