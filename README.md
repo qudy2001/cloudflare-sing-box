@@ -1,5 +1,7 @@
 # Cloudflare Tunnel + sing-box (Mac first)
 
+[简体中文说明](README.zh-CN.md)
+
 This directory is a deployment template. The Mac downloads the GFW rule set from the URL you choose; this repository does not set that URL.
 
 ## Requirements
