@@ -1,6 +1,6 @@
 services:
   sing-box:
-    image: ${SING_BOX_IMAGE:-ghcr.io/sagernet/sing-box:1.14.3}
+    image: ${SING_BOX_IMAGE:-ghcr.io/sagernet/sing-box:v1.14.3}
     restart: unless-stopped
     command: -D /var/lib/sing-box -C /etc/sing-box run
     volumes:
