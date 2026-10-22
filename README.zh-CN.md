@@ -14,7 +14,7 @@
 
 1. 复制 `server.example.json` 为 `server.json`，复制 `mac.example.json` 为 `mac.json`。生成一个 UUID（macOS 可运行 `uuidgen`，Linux 可运行 `cat /proc/sys/kernel/random/uuid`），把两个文件中的 `REPLACE_WITH_SAME_UUID_AS_MAC_CLIENT` 替换成同一个 UUID。不要公开这个 UUID。
 2. 在 Docker 主机上复制 `.env.example` 为 `.env`。将 `TUNNEL_NETWORK` 设为现有 `cloudflared` 容器所在的 Docker 网络名称。此 Compose 只启动 sing-box，不会另起 Tunnel 连接器。
-3. 在 Cloudflare 的 Tunnel 管理页面，为现有 Tunnel 手动添加主机名 `users.braineedash.co.uk` 的公开应用路由，服务地址填 `http://sing-box:10000`。客户端与 Cloudflare 边缘之间使用该主机名的 HTTPS 证书。该路由不要开启需要浏览器登录的 Cloudflare Access 验证；SFM 无法在 VMess WebSocket 连接中完成这种登录。
+3. 在 Cloudflare 的 Tunnel 管理页面，为现有 Tunnel 手动添加你选定主机名的公开应用路由，服务地址填 `http://sing-box:10000`。客户端与 Cloudflare 边缘之间使用该主机名的 HTTPS 证书。该路由不要开启需要浏览器登录的 Cloudflare Access 验证；SFM 无法在 VMess WebSocket 连接中完成这种登录。
 4. 在 Docker 主机上运行 `docker compose config` 检查配置，再运行 `docker compose up -d`。Compose 不向主机发布端口；`cloudflared` 与 sing-box 通过同一 Docker 网络通信。
 5. 运行 `docker compose ps` 和 `docker compose logs --tail=100 sing-box` 检查容器。Tunnel 显示在线只说明它与 Cloudflare 已连接，还需要单独确认应用路由能到达 sing-box。
 
@@ -30,7 +30,7 @@ ghcr.io/qudy2001/cloudflare-sing-box:latest
 
 ## Mac 客户端
 
-1. 从 `mac.example.json` 复制出的 `mac.json` 已指向 `users.braineedash.co.uk`。
+1. 在复制出的 `mac.json` 中，将 `server` 和 `tls.server_name` 两处的 `REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME` 替换为 Tunnel 路由中配置的主机名。
 2. 将 `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` 替换为你选择的 **sing-box 二进制规则集（`.srs`）HTTPS 地址**。普通 GFWList 文本文件不能直接填入这个配置。
 3. 在 SFM 中导入本地 `mac.json` 配置，启动连接，并允许 macOS 的 VPN／网络扩展权限。连接成功后，如需集中管理，也可以让 SFM 从私有 HTTPS 地址下载完整配置；不要把含 UUID 的配置放在公开 URL。
 4. 当前规则顺序是：识别协议并接管 DNS、私有地址直连、命中 GFW 规则集的流量走 `proxy`、其余流量直连。远程规则集每天检查更新；首次成功下载后会保存在本地缓存。

@@ -14,7 +14,7 @@ This directory is a deployment template. The Mac downloads the GFW rule set from
 
 1. Copy `server.example.json` to `server.json` and `mac.example.json` to `mac.json`. Generate a fresh UUID (`uuidgen` on macOS or `cat /proc/sys/kernel/random/uuid` on Linux). Replace `REPLACE_WITH_SAME_UUID_AS_MAC_CLIENT` in both files with the same value. Keep this value private.
 2. Copy `.env.example` to `.env` on the Docker host. Set `TUNNEL_NETWORK` to the existing Docker network shared with your `cloudflared` container. The Compose project starts only sing-box and joins that network. It does not start a second Tunnel connector.
-3. In Cloudflare > Networking > Tunnels, manually add a **Published application** route for `users.braineedash.co.uk` on the existing Tunnel. Set the service URL to `http://sing-box:10000`. Use the active Cloudflare edge certificate. Do not enable browser-based Access login for this route, since SFM cannot complete that login inside the VMess WebSocket connection.
+3. In Cloudflare > Networking > Tunnels, manually add a **Published application** route for your chosen hostname on the existing Tunnel. Set the service URL to `http://sing-box:10000`. Use the active Cloudflare edge certificate. Do not enable browser-based Access login for this route, since SFM cannot complete that login inside the VMess WebSocket connection.
 4. Run `docker compose config` to inspect the resolved Compose file, then `docker compose up -d` on the Docker host. No host port is published; the existing `cloudflared` connector and sing-box communicate through their shared Docker network.
 5. Check `docker compose ps` and `docker compose logs --tail=100 sing-box`. The Tunnel being healthy only proves its Cloudflare connection; also check the application route.
 
@@ -24,7 +24,7 @@ The Dockerfile layers on the official sing-box 1.14.3 image and includes no cred
 
 ## Mac setup
 
-1. The copied `mac.json` is already set to connect to `users.braineedash.co.uk`.
+1. In the copied `mac.json`, replace `REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME` in both `server` and `tls.server_name` with the hostname configured on your Tunnel route.
 2. Replace `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` with your chosen **sing-box binary rule-set (`.srs`) HTTPS URL**. A plain GFWList text file is not accepted by this configuration. Leave the URL for the user to choose; this template has no default.
 3. Import `mac.json` as a local profile in SFM, start it, and allow the macOS VPN/network extension permission. After it works, SFM may instead load a full profile from a private HTTPS URL if you want centrally managed config. Keep the UUID out of public URLs and files.
 4. The rule order is: sniff and DNS handling, private addresses direct, GFW rule-set through `proxy`, everything else direct. The remote rule-set refreshes daily and is cached after its first successful download.

@@ -23,14 +23,14 @@
     {
       "type": "vmess",
       "tag": "proxy",
-      "server": "users.braineedash.co.uk",
+      "server": "REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME",
       "server_port": 443,
       "uuid": "REPLACE_WITH_SAME_UUID_AS_MAC_CLIENT",
       "security": "chacha20-poly1305",
       "alter_id": 0,
       "tls": {
         "enabled": true,
-        "server_name": "users.braineedash.co.uk"
+        "server_name": "REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME"
       },
       "transport": {
         "type": "ws",
