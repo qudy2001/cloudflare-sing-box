@@ -1,0 +1,25 @@
+{
+  "log": { "level": "info" },
+  "inbounds": [
+    {
+      "type": "vmess",
+      "tag": "vmess-ws-in",
+      "listen": "0.0.0.0",
+      "listen_port": 10000,
+      "users": [
+        {
+          "name": "mac",
+          "uuid": "REPLACE_WITH_SAME_UUID_AS_MAC_CLIENT",
+          "alterId": 0
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/proxy"
+      }
+    }
+  ],
+  "outbounds": [
+    { "type": "direct", "tag": "direct" }
+  ]
+}

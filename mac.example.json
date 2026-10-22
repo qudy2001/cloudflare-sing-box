@@ -1,0 +1,69 @@
+{
+  "log": { "level": "info" },
+  "dns": {
+    "reverse_mapping": true,
+    "servers": [
+      { "type": "local", "tag": "local" },
+      { "type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy" }
+    ],
+    "rules": [
+      { "rule_set": "gfw", "action": "route", "server": "remote" }
+    ],
+    "final": "local"
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "address": ["172.19.0.1/30"],
+      "auto_route": true
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vmess",
+      "tag": "proxy",
+      "server": "users.braineedash.co.uk",
+      "server_port": 443,
+      "uuid": "REPLACE_WITH_SAME_UUID_AS_MAC_CLIENT",
+      "security": "chacha20-poly1305",
+      "alter_id": 0,
+      "tls": {
+        "enabled": true,
+        "server_name": "users.braineedash.co.uk"
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/proxy"
+      }
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "http_clients": [
+    { "tag": "rule-download", "detour": "proxy" }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": "local",
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "gfw",
+        "format": "binary",
+        "url": "REPLACE_WITH_YOUR_GFWLIST_SRS_URL",
+        "http_client": "rule-download",
+        "update_interval": "1d"
+      }
+    ],
+    "rules": [
+      { "action": "sniff" },
+      { "protocol": "dns", "action": "hijack-dns" },
+      { "ip_is_private": true, "action": "route", "outbound": "direct" },
+      { "rule_set": "gfw", "action": "route", "outbound": "proxy" }
+    ],
+    "final": "direct"
+  },
+  "experimental": {
+    "cache_file": { "enabled": true }
+  }
+}

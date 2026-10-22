@@ -1,0 +1,16 @@
+services:
+  sing-box:
+    image: ${SING_BOX_IMAGE:-ghcr.io/sagernet/sing-box:1.14.3}
+    restart: unless-stopped
+    command: -D /var/lib/sing-box -C /etc/sing-box run
+    volumes:
+      - ./server.json:/etc/sing-box/config.json:ro
+    networks:
+      tunnel-network:
+        aliases:
+          - sing-box
+
+networks:
+  tunnel-network:
+    external: true
+    name: ${TUNNEL_NETWORK:?Set TUNNEL_NETWORK to the existing Docker network name}
