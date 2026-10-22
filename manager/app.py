@@ -5,7 +5,9 @@ import ipaddress
 import json
 import os
 import secrets
+import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -14,6 +16,8 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from telemetry import TrafficMonitor
+
 
 DATA = Path(os.environ.get("MANAGER_DATA", "/data"))
 IMPORT = Path(os.environ.get("MANAGER_IMPORT", "/import/server.json"))
@@ -21,13 +25,15 @@ SING_BOX = os.environ.get("SING_BOX_BIN", "/usr/local/bin/sing-box")
 STATE_FILE = DATA / "state.json"
 CONFIG_FILE = DATA / "server.json"
 PORT = 10000
+BACKEND_PORT = 10001
 MANAGER_PORT = int(os.environ.get("MANAGER_PORT", "8080"))
 ALLOWED_HOSTS = {item.strip().lower() for item in os.environ.get("MANAGER_ALLOWED_HOSTS", "").split(",") if item.strip()}
-LOG_LEVELS = {"trace", "debug", "info", "warn", "error", "fatal", "panic"}
+LOG_LEVELS = {"trace", "debug", "info"}
 LOCK = threading.RLock()
 CSRF_TOKEN = secrets.token_urlsafe(32)
 PROCESS = None
 STATE = None
+MONITOR = TrafficMonitor(DATA, PORT, BACKEND_PORT)
 
 
 def atomic_json(path, value):
@@ -75,8 +81,8 @@ def server_config(state):
     return {
         "log": {"level": state["log_level"]},
         "inbounds": [{
-            "type": "vmess", "tag": "vmess-ws-in", "listen": "0.0.0.0",
-            "listen_port": PORT,
+            "type": "vmess", "tag": "vmess-ws-in", "listen": "127.0.0.1",
+            "listen_port": BACKEND_PORT,
             "users": [{"name": u["name"], "uuid": u["uuid"], "alterId": 0} for u in state["users"]],
             "transport": {"type": "ws", "path": state["ws_path"]},
         }],
@@ -103,6 +109,8 @@ def import_state():
         "log_level": source.get("log", {}).get("level", "info"),
         "users": [{"name": u["name"], "uuid": u["uuid"]} for u in inbound.get("users", [])],
     }
+    if state["log_level"] not in LOG_LEVELS:
+        state["log_level"] = "info"
     validate(state)
     return state
 
@@ -115,7 +123,14 @@ def check_config(path):
 
 def launch():
     global PROCESS
-    PROCESS = subprocess.Popen([SING_BOX, "run", "-c", str(CONFIG_FILE)])
+    PROCESS = subprocess.Popen([SING_BOX, "run", "-c", str(CONFIG_FILE)],
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               text=True, bufsize=1)
+    def read_logs(process):
+        for line in process.stdout:
+            MONITOR.consume_log(line)
+            print(line, end="", flush=True)
+    threading.Thread(target=read_logs, args=(PROCESS,), daemon=True).start()
     time.sleep(0.25)
     if PROCESS.poll() is not None:
         raise RuntimeError("sing-box 启动失败；请查看容器日志")
@@ -143,14 +158,17 @@ def apply_state(candidate):
         check_config(temp)
         with LOCK:
             old_config = CONFIG_FILE.read_bytes() if CONFIG_FILE.exists() else None
+            old_path = STATE["ws_path"] if STATE else "/proxy"
             stop()
             os.replace(temp, CONFIG_FILE)
             try:
+                MONITOR.set_ws_path(candidate["ws_path"])
                 launch()
                 atomic_json(STATE_FILE, candidate)
                 STATE = candidate
             except Exception:
                 stop()
+                MONITOR.set_ws_path(old_path)
                 if old_config is not None:
                     CONFIG_FILE.write_bytes(old_config)
                     launch()
@@ -164,10 +182,14 @@ def startup():
     DATA.mkdir(parents=True, exist_ok=True)
     if STATE_FILE.exists():
         STATE = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        if STATE.get("log_level") not in LOG_LEVELS:
+            STATE["log_level"] = "info"
+            atomic_json(STATE_FILE, STATE)
         validate(STATE)
         config = server_config(STATE)
         atomic_json(CONFIG_FILE, config)
         check_config(CONFIG_FILE)
+        MONITOR.set_ws_path(STATE["ws_path"])
         launch()
     else:
         apply_state(import_state())
@@ -207,7 +229,7 @@ table{{border-collapse:collapse;width:100%}}th,td{{border-bottom:1px solid #e4e9
 code{{font-size:13px;overflow-wrap:anywhere}}small,.muted{{color:#5d6d7d}}.notice{{padding:12px 15px;background:#e8f5ee;border:1px solid #a9dcc2;border-radius:8px;margin-bottom:18px}}
 .error{{background:#fff0ec;border-color:#edb1a4}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}.actions{{white-space:nowrap}}
 @media(max-width:650px){{.grid{{grid-template-columns:1fr}}table,thead,tbody,tr,td{{display:block}}thead{{display:none}}td{{padding:5px 0;border:0}}tr{{border-bottom:1px solid #e4e9ef;padding:12px 0}}.actions{{white-space:normal}}}}
-</style></head><body><header><h1>sing-box 管理</h1><p>内网管理页面 · 代理端口 10000 · 管理端口 8080</p></header>
+</style><script src="/dashboard.js" defer></script></head><body><header><h1>sing-box 管理</h1><p>内网管理页面 · 代理端口 10000 · 管理端口 8080</p></header>
 <main>{alert}{content}</main></body></html>'''
 
 
@@ -225,12 +247,17 @@ def page(notice=""):
         rows.append(f'''<tr><td>{esc(user["name"])}</td><td><code>{user_id}</code></td><td class="actions">
 <form class="inline" method="post" action="/users/rotate">{field("uuid", user["uuid"])}<button class="secondary" type="submit">重置 UUID</button></form>
 <form class="inline" method="post" action="/users/delete">{field("uuid", user["uuid"])}<button class="danger" type="submit">删除</button></form></td></tr>''')
-    options = "".join(f'<option value="{level}"{" selected" if level == state["log_level"] else ""}>{level}</option>' for level in ("info", "warn", "error", "debug", "trace", "fatal", "panic"))
+    options = "".join(f'<option value="{level}"{" selected" if level == state["log_level"] else ""}>{level}</option>' for level in ("info", "debug", "trace"))
     status = "运行中" if running else "已停止（正在尝试重启）"
-    body = f'''<section><h2>服务器</h2><p>状态：<strong>{status}</strong>　VMess 端口：<strong>10000</strong></p>
+    body = f'''<section><h2>实时状态</h2><p>在线用户：<strong id="active-users">—</strong>　连接：<strong id="active-connections">—</strong>　上传：<strong id="upload-rate">—</strong>　下载：<strong id="download-rate">—</strong></p>
+<p class="muted" id="metrics-status">每 2 秒刷新。上传、下载按客户端方向计算，包含 WebSocket／VMess 协议开销。</p>
+<div style="overflow-x:auto"><table><thead><tr><th>用户</th><th>连接</th><th>客户端 IP</th><th>地区</th><th>实时上传</th><th>实时下载</th><th>今日上传 / 下载</th><th>近 7 日上传 / 下载</th><th>近 30 日上传 / 下载</th></tr></thead><tbody id="traffic-users"></tbody></table></div>
+<h3>当前连接</h3><div style="overflow-x:auto"><table><thead><tr><th>用户</th><th>客户端 IP</th><th>地区</th><th>持续</th><th>上传速度</th><th>下载速度</th></tr></thead><tbody id="traffic-connections"></tbody></table></div>
+<p class="muted">统计按 UTC 日期保存于 Docker 数据卷。客户端 IP 来自 Cloudflare 的 CF-Connecting-IP；地区需要在 Cloudflare 启用 IP Geolocation 或访客位置请求头，缺失时显示“未提供”。</p></section>
+<section><h2>服务器</h2><p>状态：<strong>{status}</strong>　VMess 端口：<strong>10000</strong></p>
 <form method="post" action="/settings">{field("action", "save")}
 <div class="grid"><div><label for="path">WebSocket 路径</label><input id="path" name="ws_path" required maxlength="128" value="{esc(state['ws_path'])}"></div>
-<div><label for="level">日志级别</label><select id="level" name="log_level">{options}</select></div></div>
+<div><label for="level">日志级别</label><select id="level" name="log_level">{options}</select><small>用户识别需要 info 或更详细的日志。</small></div></div>
 <p class="muted">更改路径后，也要更新客户端配置。保存时会检查配置并重启 sing-box，现有连接可能断开。</p><button type="submit">保存设置</button></form></section>
 <section><h2>用户 <small>（{len(state['users'])}）</small></h2><div style="overflow-x:auto"><table><thead><tr><th>名称</th><th>UUID</th><th>操作</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
 <form method="post" action="/users/add">{field("action", "add")}<label for="name">新用户名称</label><input id="name" name="name" maxlength="40" required placeholder="例如：iPhone"><p><button type="submit">添加用户并生成 UUID</button></p></form>
@@ -261,7 +288,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(raw)
 
@@ -280,6 +307,12 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 healthy = PROCESS is not None and PROCESS.poll() is None
             self.respond(200 if healthy else 503, "ok" if healthy else "unavailable", "text/plain; charset=utf-8")
+        elif parsed.path == "/api/metrics":
+            with LOCK:
+                users = json.loads(json.dumps(STATE["users"]))
+            self.respond(200, json.dumps(MONITOR.snapshot(users), ensure_ascii=False), "application/json; charset=utf-8")
+        elif parsed.path == "/dashboard.js":
+            self.respond(200, Path("/app/dashboard.js").read_text(encoding="utf-8"), "text/javascript; charset=utf-8")
         elif parsed.path == "/":
             notice = urllib.parse.parse_qs(parsed.query).get("notice", [""])[0][:200]
             self.respond(200, page(notice))
@@ -327,6 +360,12 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     startup()
+    MONITOR.start()
     threading.Thread(target=supervise, daemon=True).start()
     print(f"manager listening on 0.0.0.0:{MANAGER_PORT}; proxy port {PORT}", flush=True)
-    ThreadingHTTPServer(("0.0.0.0", MANAGER_PORT), Handler).serve_forever()
+    signal.signal(signal.SIGTERM, lambda _signum, _frame: sys.exit(0))
+    try:
+        ThreadingHTTPServer(("0.0.0.0", MANAGER_PORT), Handler).serve_forever()
+    finally:
+        MONITOR.flush()
+        stop()

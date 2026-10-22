@@ -32,9 +32,15 @@ ghcr.io/qudy2001/cloudflare-sing-box:latest
 
 独立镜像 `ghcr.io/qudy2001/cloudflare-sing-box-manager:latest` 在同一个容器中运行 sing-box 和管理页面。代理在容器内固定监听 **10000**，管理页面监听 **8080**。页面可新增、删除或重置用户 UUID，并修改 WebSocket 路径和日志级别。每次保存都会先运行 `sing-box check`，通过后才重启代理进程。首次启动会导入现有的 `server.json`，之后的设置保存在 Docker 命名卷中。
 
+页面每 2 秒显示在线用户、当前连接、客户端 IP 与地区、实时上传与下载速度，以及每位用户今日、近 7 日、近 30 日的上传与下载量。日期按 UTC 计算，计数存于 `/data/traffic.db`，重建容器时保留命名卷即可保留历史。速度和流量按 WebSocket 传输字节统计，包含 VMess／WebSocket 开销；这不是 Docker 网卡总流量，也不是计费级精度。连接结束后不保留客户端 IP 历史。用户识别依赖 sing-box 的连接日志，因此管理器使用 `info`、`debug` 或 `trace` 日志级别；升级时原有更低日志级别会调为 `info`。
+
+由于 Tunnel 连接器与代理在同一 Docker 网络，代理入口看到的连接器 IP 不是访客 IP。页面从 Cloudflare 的 `CF-Connecting-IP` 请求头显示访客 IP。国家依赖 `CF-IPCountry`；省州和城市需要在 Cloudflare 启用 **Add visitor location headers** 托管转换规则。缺少相应请求头时显示“未提供”。这些请求头只用于页面展示，不能作为身份验证依据。请确保公网只能通过 Cloudflare Tunnel 到达端口 10000。
+
 1. 按前文准备含真实 UUID 的 `server.json`。复制 `.env.manager.example` 为 `.env.manager`，填写 `TUNNEL_NETWORK`。
 2. 管理端口默认**不映射到宿主机**。由你在 `compose.manager.yaml` 的 `sing-box` 服务下添加端口映射，例如 `ports: ["192.168.1.10:8080:8080"]`，把 IP 换成 Docker 主机实际内网地址。
 3. 运行 `docker compose down` 停止原服务，再运行 `docker compose --env-file .env.manager -f compose.manager.yaml up -d` 启动管理版。现有 Cloudflare route 仍指向 `http://sing-box:10000`。然后从内网打开 Docker 主机的管理地址。
+
+已有管理版部署升级时，运行 `docker compose --env-file .env.manager -f compose.manager.yaml pull && docker compose --env-file .env.manager -f compose.manager.yaml up -d`。原来的代理路由和管理端口映射均无需修改。
 
 管理页面按你的要求**不设登录密码**。只应映射到可信内网或受保护的私有访问路径，不要为 8080 创建 Cloudflare 公网路由。修改 WebSocket 路径或用户 UUID 后，还要更新对应客户端。重建容器时保留命名卷；删除命名卷会重置管理数据。
 
