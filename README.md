@@ -22,6 +22,16 @@ This directory is a deployment template. The Mac downloads the GFW rule set from
 
 The Dockerfile layers on the official sing-box 1.14.3 image and includes no credentials or configuration. A push to `main` publishes a multi-architecture image to `ghcr.io/qudy2001/cloudflare-sing-box:latest` using this repository's `GITHUB_TOKEN`. A `v*` tag push or manual workflow run publishes a versioned tag. In GitHub Packages, check the package visibility and set it to **Public** if it is Private. Keep `.env`, `server.json` with a real UUID, and `mac.json` with a real UUID out of public GitHub repositories.
 
+## Optional LAN management page
+
+The separate `ghcr.io/qudy2001/cloudflare-sing-box-manager:latest` image runs sing-box and a management page in one container. The proxy stays on container port **10000**; the page listens on container port **8080**. It can add, revoke, or rotate user UUIDs and edit the WebSocket path and log level. Changes are checked with `sing-box check` before the proxy process restarts. The first start imports the users and settings from your existing `server.json`; later changes are stored in a named Docker volume.
+
+1. Prepare `server.json` with a real UUID as described above. Copy `.env.manager.example` to `.env.manager` and set `TUNNEL_NETWORK`.
+2. Add your own host port mapping under the managed service in `compose.manager.yaml`, for example `ports: ["192.168.1.10:8080:8080"]` using the Docker host's real LAN address. No host port is mapped by default.
+3. Stop the original service with `docker compose down`, then start the managed service with `docker compose --env-file .env.manager -f compose.manager.yaml up -d`. Your existing Cloudflare route still points to `http://sing-box:10000`. Open `http://192.168.1.10:8080` from your LAN, using your actual host address.
+
+The page has **no password**, as requested. Only map it to a trusted LAN or a protected private access path. Do not create a public Cloudflare route to port 8080. Changing the WebSocket path or a user's UUID requires updating the affected client profiles. Keep the named volume when recreating the container; deleting it resets the managed state.
+
 ## Mac setup
 
 1. In the copied `mac.json`, replace `REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME` in both `server` and `tls.server_name` with the hostname configured on your Tunnel route.

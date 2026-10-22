@@ -1,3 +1,6 @@
 .env
 server.json
 mac.json
+.env.manager
+__pycache__/
+*.pyc

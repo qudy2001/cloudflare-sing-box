@@ -1,0 +1,7 @@
+.git
+.env
+.env.manager
+server.json
+mac.json
+**/__pycache__/
+**/*.pyc

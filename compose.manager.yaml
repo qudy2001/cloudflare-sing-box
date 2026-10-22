@@ -1,0 +1,22 @@
+services:
+  sing-box:
+    image: ghcr.io/qudy2001/cloudflare-sing-box-manager:latest
+    restart: unless-stopped
+    volumes:
+      - sing-box-manager-data:/data
+      - ./server.json:/import/server.json:ro
+    expose:
+      - "10000"
+      - "8080"
+    networks:
+      tunnel-network:
+        aliases:
+          - sing-box
+
+networks:
+  tunnel-network:
+    external: true
+    name: ${TUNNEL_NETWORK:?Set TUNNEL_NETWORK to the existing Docker network name}
+
+volumes:
+  sing-box-manager-data:

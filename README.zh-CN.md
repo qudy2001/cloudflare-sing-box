@@ -28,6 +28,16 @@ ghcr.io/qudy2001/cloudflare-sing-box:latest
 
 推送 `v*` 标签或手动运行工作流可发布带版本号的标签。镜像目前已可匿名拉取。`.env.example` 已指定本仓库的镜像地址。不要将填写了真实 UUID 的 `.env`、`server.json` 或 `mac.json` 提交到公开仓库。
 
+## 可选：内网管理页面
+
+独立镜像 `ghcr.io/qudy2001/cloudflare-sing-box-manager:latest` 在同一个容器中运行 sing-box 和管理页面。代理在容器内固定监听 **10000**，管理页面监听 **8080**。页面可新增、删除或重置用户 UUID，并修改 WebSocket 路径和日志级别。每次保存都会先运行 `sing-box check`，通过后才重启代理进程。首次启动会导入现有的 `server.json`，之后的设置保存在 Docker 命名卷中。
+
+1. 按前文准备含真实 UUID 的 `server.json`。复制 `.env.manager.example` 为 `.env.manager`，填写 `TUNNEL_NETWORK`。
+2. 管理端口默认**不映射到宿主机**。由你在 `compose.manager.yaml` 的 `sing-box` 服务下添加端口映射，例如 `ports: ["192.168.1.10:8080:8080"]`，把 IP 换成 Docker 主机实际内网地址。
+3. 运行 `docker compose down` 停止原服务，再运行 `docker compose --env-file .env.manager -f compose.manager.yaml up -d` 启动管理版。现有 Cloudflare route 仍指向 `http://sing-box:10000`。然后从内网打开 Docker 主机的管理地址。
+
+管理页面按你的要求**不设登录密码**。只应映射到可信内网或受保护的私有访问路径，不要为 8080 创建 Cloudflare 公网路由。修改 WebSocket 路径或用户 UUID 后，还要更新对应客户端。重建容器时保留命名卷；删除命名卷会重置管理数据。
+
 ## Mac 客户端
 
 1. 在复制出的 `mac.json` 中，将 `server` 和 `tls.server_name` 两处的 `REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME` 替换为 Tunnel 路由中配置的主机名。
