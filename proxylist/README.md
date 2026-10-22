@@ -38,6 +38,10 @@ sing-box 文件包含 **4,093 条上游域名后缀规则、1 条自定义规则
 因此 sing-box 版本只是 GFWList 的域名规则转换版，不能完全复现原列表。
 `domains.txt` 不处理例外规则；本仓库的 Mac 配置应使用 `.srs` 文件。
 
+如果首次启动时无法下载 `.srs`，可使用仓库根目录的
+[mac.offline.example.json](../mac.offline.example.json)。它内嵌本页的规则，
+无需首次下载，但不会自动更新。
+
 To use this repository's binary rule set, replace
 `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` in your private `mac.json` with:
 

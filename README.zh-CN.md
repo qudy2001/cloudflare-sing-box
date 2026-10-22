@@ -51,6 +51,8 @@ ghcr.io/qudy2001/cloudflare-sing-box:latest
 3. 在 SFM 中导入本地 `mac.json` 配置，启动连接，并允许 macOS 的 VPN／网络扩展权限。连接成功后，如需集中管理，也可以让 SFM 从私有 HTTPS 地址下载完整配置；不要把含 UUID 的配置放在公开 URL。
 4. 当前规则顺序是：识别协议并接管 DNS、私有地址直连、命中 GFW 规则集的流量走 `proxy`、其余流量直连。远程规则集每天检查更新；首次成功下载后会保存在本地缓存。
 
+**首次启动与离线导入：** 上述 `mac.example.json` 使用远程规则集。没有缓存时，SFM 必须先取得 `.srs` 才能启动 VPN；`http_client` 中的 `detour: proxy` 只指定下载走哪个出站，不会让下载推迟到 VPN 启动后。如果规则集 URL 无法访问，可改用 [mac.offline.example.json](mac.offline.example.json)：它把仓库当前的 GFW 域名规则直接放在配置里，首次启动无需下载规则集。复制后填写自己的域名和 UUID，再作为**本地配置**导入 SFM。离线版规则不会自动更新；仓库规则更新后，可运行 `python3 scripts/build_offline_mac.py mac.json mac-offline.json` 从自己的私有配置重新生成。不要把包含真实 UUID 的输出提交到公开仓库。
+
 ## 验证
 
 - 确认 Cloudflare 主机名呈现有效的边缘证书，WebSocket 请求能到达 sing-box。

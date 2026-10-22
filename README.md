@@ -45,6 +45,8 @@ The page has **no password**, as requested. Only map it to a trusted LAN or a pr
 3. Import `mac.json` as a local profile in SFM, start it, and allow the macOS VPN/network extension permission. After it works, SFM may instead load a full profile from a private HTTPS URL if you want centrally managed config. Keep the UUID out of public URLs and files.
 4. The rule order is: sniff and DNS handling, private addresses direct, GFW rule-set through `proxy`, everything else direct. The remote rule-set refreshes daily and is cached after its first successful download.
 
+**First start and offline import:** The remote rule set in `mac.example.json` must be fetched before SFM can start the VPN when no cache exists. The `detour: proxy` HTTP client chooses the download outbound; it does not postpone the download until after VPN startup. If the rule-set URL is unreachable, use [mac.offline.example.json](mac.offline.example.json). It embeds the current pinned GFW domain rules in one profile, so no rule-set download is needed at startup. Fill in your hostname and UUID, then import it as a **local profile**. This snapshot does not update automatically. After updating the repository's rules, regenerate it from your private profile with `python3 scripts/build_offline_mac.py mac.json mac-offline.json`. Never commit the generated profile with a real UUID to a public repository.
+
 ## Checks
 
 - Confirm the Cloudflare hostname presents a valid edge certificate and WebSocket requests reach sing-box.
