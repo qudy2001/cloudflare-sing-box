@@ -2,7 +2,7 @@
 
 [简体中文说明](README.zh-CN.md)
 
-This directory is a deployment template. The Mac downloads the GFW rule set from the URL you choose; this repository does not set that URL.
+This directory is a deployment template. The Mac downloads the GFW rule set from the URL you choose; the example configuration does not set that URL. An optional, pinned rule set in several formats is available in [proxylist](proxylist/README.md).
 
 ## Requirements
 
@@ -35,7 +35,7 @@ The page has **no password**, as requested. Only map it to a trusted LAN or a pr
 ## Mac setup
 
 1. In the copied `mac.json`, replace `REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME` in both `server` and `tls.server_name` with the hostname configured on your Tunnel route.
-2. Replace `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` with your chosen **sing-box binary rule-set (`.srs`) HTTPS URL**. A plain GFWList text file is not accepted by this configuration. Leave the URL for the user to choose; this template has no default.
+2. Replace `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` with your chosen **sing-box binary rule-set (`.srs`) HTTPS URL**. You can use [this repository's compiled domain rule set](proxylist/README.md), or another URL. A plain GFWList text file is not accepted by this configuration. The example leaves the URL for you to choose.
 3. Import `mac.json` as a local profile in SFM, start it, and allow the macOS VPN/network extension permission. After it works, SFM may instead load a full profile from a private HTTPS URL if you want centrally managed config. Keep the UUID out of public URLs and files.
 4. The rule order is: sniff and DNS handling, private addresses direct, GFW rule-set through `proxy`, everything else direct. The remote rule-set refreshes daily and is cached after its first successful download.
 

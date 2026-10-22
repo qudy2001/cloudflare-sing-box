@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-本仓库提供部署模板。Mac 客户端会从你自行指定的 URL 下载 GFW 规则集；仓库没有预设规则集地址。
+本仓库提供部署模板。Mac 客户端会从你自行指定的 URL 下载 GFW 规则集；示例配置没有预设地址。仓库的 [proxylist 目录](proxylist/README.md) 提供一个固定版本的多种规则格式。
 
 ## 准备条件
 
@@ -41,7 +41,7 @@ ghcr.io/qudy2001/cloudflare-sing-box:latest
 ## Mac 客户端
 
 1. 在复制出的 `mac.json` 中，将 `server` 和 `tls.server_name` 两处的 `REPLACE_WITH_YOUR_CLOUDFLARE_HOSTNAME` 替换为 Tunnel 路由中配置的主机名。
-2. 将 `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` 替换为你选择的 **sing-box 二进制规则集（`.srs`）HTTPS 地址**。普通 GFWList 文本文件不能直接填入这个配置。
+2. 将 `REPLACE_WITH_YOUR_GFWLIST_SRS_URL` 替换为你选择的 **sing-box 二进制规则集（`.srs`）HTTPS 地址**。可以使用[本仓库编译的域名规则集](proxylist/README.md)，也可以填写其他地址。普通 GFWList 文本文件不能直接填入这个配置。
 3. 在 SFM 中导入本地 `mac.json` 配置，启动连接，并允许 macOS 的 VPN／网络扩展权限。连接成功后，如需集中管理，也可以让 SFM 从私有 HTTPS 地址下载完整配置；不要把含 UUID 的配置放在公开 URL。
 4. 当前规则顺序是：识别协议并接管 DNS、私有地址直连、命中 GFW 规则集的流量走 `proxy`、其余流量直连。远程规则集每天检查更新；首次成功下载后会保存在本地缓存。
 
